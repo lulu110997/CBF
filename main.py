@@ -75,12 +75,12 @@ def abc():
     return robot, Ts.t[:, :2], ik_sol.q, qd
 
 
-GAMMA = 1  # Used in CBF calculation
+GAMMA = 2  # Used in CBF calculation
 K = 2.5  # P gain for position controller
 RADIUS = 0.3  # Circle radius
 x_obs = np.array([1, 1])  # Obstacle position
-LB = np.array([-1, -1])  # Lower bound
 UB = np.array([1, 1])  # Upper bound
+LB = np.array([-1, -1])  # Lower bound
 # x_ee = [0, 0, 0]
 
 hx, hx_dot = obtain_cbf()
@@ -89,27 +89,29 @@ robot, xs, qs, qds = abc()
 current_x = xs[0]
 current_q = qs[0]
 
-# robot_fig = robot.plot(current_q)
-# robot_fig.ax.set(xlim=(-1.5, 2.6), ylim=(-1.5, 2.6))
-# robot_fig.ax.view_init(elev=90, azim=90, roll=0)
-#
-# u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-# x = RADIUS*np.cos(u)*np.sin(v) + 1
-# y = RADIUS*np.sin(u)*np.sin(v) + 1
-# z = np.cos(v)
-# robot_fig.ax.plot_wireframe(x, y, z, color="r")
+robot_fig = robot.plot(current_q)
+robot_fig.ax.set(xlim=(-1.5, 2.6), ylim=(-1.5, 2.6))
+robot_fig.ax.view_init(elev=90, azim=90, roll=0)
+
+u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+x = RADIUS*np.cos(u)*np.sin(v) + 1
+y = RADIUS*np.sin(u)*np.sin(v) + 1
+z = np.cos(v)
+robot_fig.ax.plot_wireframe(x, y, z, color="r")
 
 x_online = np.zeros((STEPS, 2))
 q_online = np.zeros((STEPS, 2))
+
+x_tgt = np.array([2, 2.5]).reshape(current_x.shape)
 
 for idx in range(STEPS):
     x_online[idx] = current_x.reshape((1, 2))
     q_online[idx] = current_q.reshape((1, 2))
 
     R = np.identity(2)  # Position we are trying to track
-    s = K*(xs[idx] - current_x).reshape(2, 1)
-    G = -hx_dot(xs[idx], x_obs, RADIUS)*np.identity(2)  # CBF derivative, hx_dot
-    h = np.array([GAMMA * hx(xs[idx], x_obs, RADIUS), GAMMA * hx(xs[idx], x_obs, RADIUS)]).reshape(2, 1)  # CBF exponential gamma*hx
+    s = K*(xs[idx] - current_x)
+    G = -hx_dot(current_x, x_obs, RADIUS)  # CBF derivative
+    h = GAMMA * hx(current_x, x_obs, RADIUS)  # CBF exponential gamma*hx
     # print(R)
     # print(s)
     # print(G)
@@ -126,18 +128,19 @@ for idx in range(STEPS):
     current_x = next_x
     current_q = next_q
 
-# for idx in range(0, STEPS, 10):
-#     robot.q = q_online[idx]
-#     robot_fig.step()
-#
-# robot_fig.hold()
+for idx in range(0, STEPS, 10):
+    robot.q = q_online[idx]
+    robot_fig.step()
+
+robot_fig.hold()
 
 circle1 = plt.Circle((1, 1), RADIUS, color='r')
 xy_fig, xy_ax = plt.subplots()
+xy_ax.axis('equal')
 xy_ax.add_patch(circle1)
-xy_ax.plot(x_online[:, 0], x_online[:, 1])
-xy_ax.plot(xs[:, 0], xs[:, 1])
-
+xy_ax.plot(x_online[:, 0], x_online[:, 1], label=f"Gamma = {GAMMA}")
+xy_ax.plot(xs[:, 0], xs[:, 1], label="Offline trajectory")
+xy_ax.legend()
 
 # qd_fig, qd_ax = plt.subplots(nrows=3, ncols=2, constrained_layout=True)
 # qd_ax = qd_ax.reshape(-1)
