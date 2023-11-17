@@ -38,7 +38,7 @@ def obtain_cbf():
     hx = sym.sqrt(
         (x_ee[0] - x_obs[0])**2 +
         (x_ee[1] - x_obs[1])**2
-    )**2 - (R**2 + Rw**2)
+    )**2 - (R + Rw)**2
 
     hx_dot = sym.diff(hx, x_ee)
     # print(hx_dot)
@@ -57,7 +57,7 @@ def abc():
 
     t = np.arange(0, TIME, FREQ)  # time, 5/freq points
     T0 = SE3(0, 0, 0)  # initial pose
-    T1 = SE3(2, 2.5, 0)  # final pose
+    T1 = SE3(2.49, 2.5, 0)  # final pose
     Ts = rtb.tools.trajectory.ctraj(T0, T1, t)
 
     # robot_fig = robot.plot([0, 0])
@@ -76,10 +76,10 @@ def abc():
     return robot, Ts.t[:, :2], ik_sol.q, qd
 
 
-GAMMA = 2  # Used in CBF calculation
+GAMMA = 8  # Used in CBF calculation
 K = 2.5  # P gain for position controller
 RADIUS = 0.3  # Circle radius
-Rw = 1  # Radius around the EE
+Rw = 0.1  # Radius around the EE
 x_obs = np.array([1, 1])  # Obstacle position
 UB = np.array([1, 1])  # Upper bound
 LB = np.array([-1, -1])  # Lower bound
@@ -104,15 +104,15 @@ robot_fig.ax.plot_wireframe(x, y, z, color="r")
 x_online = np.zeros((STEPS, 2))
 q_online = np.zeros((STEPS, 2))
 
-x_tgt = np.array([2, 2.5]).reshape(current_x.shape)
+x_tgt = np.array([2.5, 2.5]).reshape(current_x.shape)
 
 for idx in range(STEPS):
     x_online[idx] = current_x.reshape((1, 2))
     q_online[idx] = current_q.reshape((1, 2))
 
     R = np.identity(2)  # Position we are trying to track
-    # s = K*(xs[idx] - current_x)
-    s = K*(x_tgt - current_x)
+    s = K*(xs[idx] - current_x)
+    # s = K*(x_tgt - current_x)
     G = -hx_dot(current_x, x_obs, RADIUS, Rw)  # CBF derivative
     h = GAMMA * hx(current_x, x_obs, RADIUS, Rw)  # CBF exponential gamma*hx
     # print(R)
@@ -131,7 +131,7 @@ for idx in range(STEPS):
     current_x = next_x
     current_q = next_q
 
-for idx in range(0, STEPS, 10):
+for idx in range(0, STEPS, 50):
     robot.q = q_online[idx]
     robot_fig.step()
 
