@@ -26,25 +26,26 @@ def obtain_cbf():
     x_obs = sym.symbols('x_obs:2')
     x_ee = sym.Matrix([[x_ee[0], x_ee[1]]])
     x_obs = sym.Matrix([[x_obs[0], x_obs[1]]])
+    Rw = sym.Symbol('Rw')
     R = sym.Symbol('R')
 
     # This provides a much more complicated hx_dot
     alt_hx = sym.sqrt(
         (x_ee[0] - x_obs[0])**2 +
         (x_ee[1] - x_obs[1])**2
-    ) - R
+    ) - (R + Rw)
 
     hx = sym.sqrt(
         (x_ee[0] - x_obs[0])**2 +
         (x_ee[1] - x_obs[1])**2
-    )**2 - R**2
+    )**2 - (R**2 + Rw**2)
 
     hx_dot = sym.diff(hx, x_ee)
     # print(hx_dot)
     # sym.preview(hx_dot)
 
-    hx = sym.lambdify([x_ee, x_obs, R], expr=hx)
-    hx_dot = sym.lambdify([x_ee, x_obs, R], expr=hx_dot)
+    hx = sym.lambdify([x_ee, x_obs, R, Rw], expr=hx)
+    hx_dot = sym.lambdify([x_ee, x_obs, R, Rw], expr=hx_dot)
     return hx, hx_dot
 
 def abc():
@@ -78,6 +79,7 @@ def abc():
 GAMMA = 2  # Used in CBF calculation
 K = 2.5  # P gain for position controller
 RADIUS = 0.3  # Circle radius
+Rw = 1  # Radius around the EE
 x_obs = np.array([1, 1])  # Obstacle position
 UB = np.array([1, 1])  # Upper bound
 LB = np.array([-1, -1])  # Lower bound
@@ -109,9 +111,10 @@ for idx in range(STEPS):
     q_online[idx] = current_q.reshape((1, 2))
 
     R = np.identity(2)  # Position we are trying to track
-    s = K*(xs[idx] - current_x)
-    G = -hx_dot(current_x, x_obs, RADIUS)  # CBF derivative
-    h = GAMMA * hx(current_x, x_obs, RADIUS)  # CBF exponential gamma*hx
+    # s = K*(xs[idx] - current_x)
+    s = K*(x_tgt - current_x)
+    G = -hx_dot(current_x, x_obs, RADIUS, Rw)  # CBF derivative
+    h = GAMMA * hx(current_x, x_obs, RADIUS, Rw)  # CBF exponential gamma*hx
     # print(R)
     # print(s)
     # print(G)
